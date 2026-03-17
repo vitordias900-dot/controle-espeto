@@ -1,98 +1,175 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useEffect, useState } from "react";
+import { Keyboard, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View } from "react-native";
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+// Definindo o tipo do produto
+type Produto = {
+  nome: string;
+  comprado: number;
+  vendido: number;
+  sobra: number;
+  faturamento: number;
+};
 
 export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
-  );
+  const [nome, setNome] = useState<string>("")
+  const [comprado, setComprado] = useState<string>("")
+  const [vendido, setVendido] = useState<string>("")
+  const [lista, setLista] = useState<Produto[]>([])  // <- Tipado corretamente
+
+  // Carregar produtos salvos ao abrir o app
+  useEffect(() => {
+    async function carregarProdutos() {
+      const dados = await AsyncStorage.getItem('@produtos');
+      if (dados) setLista(JSON.parse(dados));
+    }
+    carregarProdutos();
+  }, []);
+
+  // Função para cadastrar produto
+  function cadastrarProduto() {
+    const compradoNum = parseInt(comprado)
+    const vendidoNum = parseInt(vendido)
+
+    if (!nome || isNaN(compradoNum) || isNaN(vendidoNum)) {
+      alert("Preencha todos os campos corretamente!");
+      return;
+    }
+
+    const sobra = compradoNum - vendidoNum
+    const faturamento = vendidoNum * 8
+
+    const produto: Produto = { nome, comprado: compradoNum, vendido: vendidoNum, sobra, faturamento }
+
+    const novaLista = [...lista, produto]
+    setLista(novaLista)
+
+    // Salvar no AsyncStorage
+    AsyncStorage.setItem('@produtos', JSON.stringify(novaLista));
+
+    // Limpar campos
+    setNome("")
+    setComprado("")
+    setVendido("")
+
+    // Fechar teclado automaticamente
+    Keyboard.dismiss()
+  }
+
+  // Totais do dia
+  const faturamentoTotal = lista.reduce((total, item) => total + item.faturamento, 0)
+  const sobraTotal = lista.reduce((total, item) => total + item.sobra, 0)
+
+  return (
+    <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
+      <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 50 }}>
+        
+        <Text style={styles.titulo}>CONTROLE DO ESPETO</Text>
+
+        <Text style={styles.label}>Sabor :</Text>
+        <TextInput
+          placeholder="Digite o nome do produto"
+          style={styles.input}
+          value={nome}
+          onChangeText={setNome}
+        />
+
+        <Text style={styles.label}>Quantidade Comprada :</Text>
+        <TextInput
+          placeholder="Digite a quantidade comprada"
+          style={styles.input}
+          value={comprado}
+          onChangeText={setComprado}
+          keyboardType="numeric"
+        />
+
+        <Text style={styles.label}>Quantidade Vendida :</Text>
+        <TextInput
+          placeholder="Digite a quantidade vendida"
+          style={styles.input}
+          value={vendido}
+          onChangeText={setVendido}
+          keyboardType="numeric"
+        />
+
+        <TouchableOpacity style={styles.botao} onPress={cadastrarProduto}>
+          <Text style={styles.textoBotao}>Cadastrar Produto</Text>
+        </TouchableOpacity>
+
+        {/* Lista de produtos */}
+        {lista.map((item, index) => (
+          <Text key={index} style={styles.itemLista}>
+            {item.nome} | Comprado: {item.comprado} | Vendido: {item.vendido} | Sobra: {item.sobra} | Faturamento: R$ {item.faturamento}
+          </Text>
+        ))}
+
+        {/* Resumo do dia */}
+        {lista.length > 0 && (
+          <View style={styles.resumoContainer}>
+            <Text style={styles.resumoTitulo}>Resumo do Dia:</Text>
+            <Text style={styles.resumoItem}>Faturamento Total: R$ {faturamentoTotal}</Text>
+            <Text style={styles.resumoItem}>Sobra Total: {sobraTotal}</Text>
+          </View>
+        )}
+
+      </ScrollView>
+    </TouchableWithoutFeedback>
+  )
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  container:{
+    flex:1,
+    backgroundColor:"#f2f2f2",
+    padding:30,
+    paddingTop:80
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  titulo:{
+    fontSize:26,
+    fontWeight:"bold",
+    marginBottom:30,
+    marginTop:40
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  label:{
+    fontSize:16,
+    marginBottom:5
   },
-});
+  input:{
+    backgroundColor:"#fff",
+    padding:12,
+    borderRadius:8,
+    marginBottom:20
+  },
+  botao:{
+    backgroundColor:"#0048ff",
+    padding:15,
+    borderRadius:10,
+    alignItems:"center",
+    marginBottom:30
+  },
+  textoBotao:{
+    color:"#fff",
+    fontWeight:"bold",
+    fontSize:16
+  },
+  itemLista:{
+    fontSize:16,
+    marginBottom:5
+  },
+  resumoContainer:{
+    marginTop:20,
+    paddingTop:10,
+    borderTopWidth:1,
+    borderTopColor:"#ccc"
+  },
+  resumoTitulo:{
+    fontSize:18,
+    fontWeight:"bold",
+    marginBottom:5
+  },
+  resumoItem:{
+    fontSize:16,
+    marginBottom:3
+  }
+})
